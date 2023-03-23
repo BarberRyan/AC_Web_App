@@ -41,13 +41,13 @@ app.MapGet("/weatherforecast", () =>
 })
 .WithName("GetWeatherForecast");
 
-app.MapGet("/getshopinfo", () =>
+app.MapGet("/getshopinfo", (int recordNum) =>
 {
     StringBuilder sb = new();
     using (SqlConnection c = new SqlConnection("Server=tcp:planetexpress.database.windows.net,1433;Initial Catalog=AmazoniaCheckout;Persist Security Info=False;User ID=AC_API;Password=PgTeam2023;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"))
     {
         c.Open();
-        SqlCommand command = new SqlCommand("SELECT * FROM items", c);
+        SqlCommand command = new SqlCommand($"SELECT * FROM items WHERE itemID = {recordNum}", c);
         SqlDataReader reader = command.ExecuteReader();
 
         while (reader.Read())
@@ -70,13 +70,7 @@ app.MapGet("/getshopinfo", () =>
 
         return sb.ToString();
     }
-
-
-    return "";
 }).WithName("GetShopInfo");
-
-
-
 
 
 app.Run();
