@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Builder;
+using AC_Web_App;
 using System.Data.SqlClient;
 using System.Text;
 
@@ -20,70 +20,48 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
-
-var values = new List<(int, string, string, decimal, decimal, decimal)>();
-
-app.MapGet("/weatherforecast", () =>
-{
-    var forecast = Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateTime.Now.AddDays(index),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast");
-
-app.MapGet("/getshopinfo", (int? recordNum) =>
+app.MapGet("/getshopinfo", () =>
 {
     StringBuilder sb = new();
     using (SqlConnection c = new SqlConnection("Server=tcp:planetexpress.database.windows.net,1433;Initial Catalog=AmazoniaCheckout;Persist Security Info=False;User ID=AC_API;Password=PgTeam2023;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"))
     {
+        List<ShopItem> items = new List<ShopItem>();
         c.Open();
-        SqlCommand command = new SqlCommand($"SELECT * FROM items LEFT JOIN itemImages ON items.itemID=itemImages.itemID WHERE items.itemID={recordNum}", c);
+        SqlCommand command = new SqlCommand($"SELECT * FROM items", c);
         SqlDataReader reader = command.ExecuteReader();
-
         while (reader.Read())
         {
-            sb.Append(reader.GetInt32(0) + " | ");
-            sb.Append(reader.GetString(1) + " | ");
-            sb.Append(reader.GetString(2) + " | ");
-            sb.Append(reader.GetDecimal(3) + " | ");
+            ShopItem item = new ShopItem();
+            item.Id = reader.GetInt32(0);
+            item.Name = reader.GetString(1);
+            item.Desc = reader.GetString(2);
+            item.Price = reader.GetDecimal(3);
             try
             {
-                sb.Append(reader.GetDecimal(4) + " | ");
+                item.OldPrice = reader.GetDecimal(4);
             }
             catch
             {
-                sb.Append("NULL | ");
+                item.OldPrice = 0;
             }
-            sb.Append(reader.GetDecimal(5) + " | ");
-            try
-            {
-                sb.Append(reader.GetString(6));
-            }
-            catch
-            {
-                sb.Append("NULL");
-            }
-            sb.AppendLine();
+            item.Rating = reader.GetDecimal(5);
+            items.Add(item);
         }
-
-        return sb.ToString();
+        reader.Close();
+        command = new SqlCommand($"SELECT * FROM itemImages", c);
+        reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            foreach(ShopItem item in items)
+            {
+                if(item.Id == reader.GetInt32(0))
+                {
+                    item.AddImage(reader.GetString(1));
+                }
+            }
+        }
+        return items;
     }
 }).WithName("GetShopInfo");
 
-
 app.Run();
-
-internal record WeatherForecast(DateTime Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
