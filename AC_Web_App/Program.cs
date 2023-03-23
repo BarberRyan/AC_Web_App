@@ -41,13 +41,13 @@ app.MapGet("/weatherforecast", () =>
 })
 .WithName("GetWeatherForecast");
 
-app.MapGet("/getshopinfo", (int recordNum) =>
+app.MapGet("/getshopinfo", (int? recordNum) =>
 {
     StringBuilder sb = new();
     using (SqlConnection c = new SqlConnection("Server=tcp:planetexpress.database.windows.net,1433;Initial Catalog=AmazoniaCheckout;Persist Security Info=False;User ID=AC_API;Password=PgTeam2023;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"))
     {
         c.Open();
-        SqlCommand command = new SqlCommand($"SELECT * FROM items WHERE itemID = {recordNum}", c);
+        SqlCommand command = new SqlCommand($"SELECT * FROM items LEFT JOIN itemImages ON items.itemID=itemImages.itemID WHERE items.itemID={recordNum}", c);
         SqlDataReader reader = command.ExecuteReader();
 
         while (reader.Read())
@@ -64,7 +64,15 @@ app.MapGet("/getshopinfo", (int recordNum) =>
             {
                 sb.Append("NULL | ");
             }
-            sb.Append(reader.GetDecimal(5));
+            sb.Append(reader.GetDecimal(5) + " | ");
+            try
+            {
+                sb.Append(reader.GetString(6));
+            }
+            catch
+            {
+                sb.Append("NULL");
+            }
             sb.AppendLine();
         }
 
