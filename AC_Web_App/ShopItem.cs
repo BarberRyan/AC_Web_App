@@ -8,6 +8,8 @@
         public decimal Price { get; set; }
         public decimal OldPrice { get; set; }
         public decimal Rating { get; set; }
+        public int Qty { get; set; }
+
         public List<string> ImageNames { get; set; }
 
         public void AddImage(string filename)

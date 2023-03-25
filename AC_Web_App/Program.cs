@@ -1,5 +1,6 @@
 using AC_Web_App;
 using System.Data.SqlClient;
+using System.Data.SqlTypes;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -20,14 +21,61 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+string ConStr = "Server=tcp:planetexpress.database.windows.net,1433;Initial Catalog=AmazoniaCheckout;Persist Security Info=False;User ID=AC_API;Password=PgTeam2023;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
+
 app.MapGet("/getshopinfo", () =>
 {
     StringBuilder sb = new();
-    using (SqlConnection c = new SqlConnection("Server=tcp:planetexpress.database.windows.net,1433;Initial Catalog=AmazoniaCheckout;Persist Security Info=False;User ID=AC_API;Password=PgTeam2023;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;"))
+    using (SqlConnection c = new SqlConnection(ConStr))
     {
         List<ShopItem> items = new List<ShopItem>();
         c.Open();
         SqlCommand command = new SqlCommand($"SELECT * FROM items", c);
+        SqlDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            ShopItem item = new ShopItem();
+            item.Id = reader.GetInt32(0);
+            item.Name = reader.GetString(1);
+            item.Desc = reader.GetString(2);
+            item.Price = reader.GetDecimal(3);
+            try
+            {
+                item.OldPrice = reader.GetDecimal(4);
+            }
+            catch
+            {
+                item.OldPrice = 0;
+            }
+            item.Rating = reader.GetDecimal(5);
+            item.Qty = reader.GetInt32(6);
+            items.Add(item);
+        }
+        reader.Close();
+        command = new SqlCommand($"SELECT * FROM itemImages", c);
+        reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            foreach(ShopItem item in items)
+            {
+                if(item.Id == reader.GetInt32(0))
+                {
+                    item.AddImage(reader.GetString(1));
+                }
+            }
+        }
+        return items;
+    }
+}).WithName("Get Shop Info");
+
+app.MapGet("/getiteminfo", (int itemID) =>
+{
+    StringBuilder sb = new();
+    using (SqlConnection c = new SqlConnection(ConStr))
+    {
+        List<ShopItem> items = new List<ShopItem>();
+        c.Open();
+        SqlCommand command = new SqlCommand($"SELECT * FROM items WHERE itemID={itemID}", c);
         SqlDataReader reader = command.ExecuteReader();
         while (reader.Read())
         {
@@ -52,9 +100,9 @@ app.MapGet("/getshopinfo", () =>
         reader = command.ExecuteReader();
         while (reader.Read())
         {
-            foreach(ShopItem item in items)
+            foreach (ShopItem item in items)
             {
-                if(item.Id == reader.GetInt32(0))
+                if (item.Id == reader.GetInt32(0))
                 {
                     item.AddImage(reader.GetString(1));
                 }
@@ -62,6 +110,98 @@ app.MapGet("/getshopinfo", () =>
         }
         return items;
     }
-}).WithName("GetShopInfo");
+}).WithName("Get Item Info");
+
+app.MapGet("/checkusername", (string username) =>
+{
+    using (SqlConnection c = new SqlConnection(ConStr))
+    {
+        int salt = 0;
+        c.Open();
+        SqlCommand command = new SqlCommand("DECLARE @salt int " +
+                                            "EXEC checkusername @name, @salt OUTPUT " +
+                                            "SELECT @salt AS passwordSalt", c);
+        command.Parameters.AddWithValue("@name", username);
+        SqlDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            try
+            {
+                salt = reader.GetInt32(0);
+            }
+            catch
+            {
+                salt = 0;
+            }
+        }
+        return salt;
+    }
+}).WithName("Get Username");
+
+app.MapGet("/checklogin", (string username, string passHash) =>
+{
+    using (SqlConnection c = new SqlConnection(ConStr))
+    {
+        c.Open();
+        SqlCommand command = new SqlCommand("DECLARE @output int " +
+                                            "EXEC @output = checklogin @username=@name, @password=@passHash " +
+                                            "SELECT @output AS output", c);
+        command.Parameters.AddWithValue("@name", username);
+        command.Parameters.AddWithValue("@passHash", passHash);
+        SqlDataReader reader = command.ExecuteReader();
+        User outputuser = new();
+        while (reader.Read())
+        {
+            try
+            {
+                outputuser.Id = reader.GetInt32(0);
+
+                if(outputuser.Id != 0)
+                {
+                    outputuser.Name = reader.GetString(1);
+                }
+                else
+                {
+                    outputuser.Name = "USER NOT FOUND";
+                }
+
+            }
+            catch
+            {
+                outputuser.Id = 0;
+                outputuser.Name = "USER NOT FOUND";
+            }
+        }
+        return outputuser;
+    }
+}).WithName("Check Login");
+
+app.MapGet("/adduser", (string username, string passHash, int salt) =>
+{
+    using (SqlConnection c = new SqlConnection(ConStr))
+    {
+        int addStatus = 0;
+        c.Open();
+        SqlCommand command = new SqlCommand("DECLARE @output int " +
+                                            "EXEC @output = adduser @username=@name, @passwordHash=@passHash, @salt=@passSalt " +
+                                            "SELECT @output AS output", c);
+        command.Parameters.AddWithValue("@name", username);
+        command.Parameters.AddWithValue("@passHash", passHash);
+        command.Parameters.AddWithValue("@passSalt", salt);
+        SqlDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            try
+            {
+                addStatus = reader.GetInt32(0);
+            }
+            catch
+            {
+                addStatus = 0;
+            }
+        }
+        return addStatus;
+    }
+}).WithName("Add User");
 
 app.Run();
