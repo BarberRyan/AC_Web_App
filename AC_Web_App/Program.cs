@@ -32,90 +32,95 @@ string ConStr = "Server=tcp:planetexpress.database.windows.net,1433;Initial Cata
 app.MapGet("/getshopinfo", () =>
 {
     StringBuilder sb = new();
-    using (SqlConnection c = new SqlConnection(ConStr))
+    using SqlConnection c = new(ConStr);
+    List<ShopItem> items = new();
+    c.Open();
+    SqlCommand command = new($"SELECT * FROM items", c);
+    SqlDataReader reader = command.ExecuteReader();
+    while (reader.Read())
     {
-        List<ShopItem> items = new List<ShopItem>();
-        c.Open();
-        SqlCommand command = new SqlCommand($"SELECT * FROM items", c);
-        SqlDataReader reader = command.ExecuteReader();
-        while (reader.Read())
+        ShopItem item = new
+        (
+            reader.GetInt32(0),
+            reader.GetString(1),
+            reader.GetString(2),
+            reader.GetDecimal(3),
+            0,
+            reader.GetDecimal(5),
+            reader.GetInt32(6)
+        );
+        try
         {
-            ShopItem item = new ShopItem();
-            item.Id = reader.GetInt32(0);
-            item.Name = reader.GetString(1);
-            item.Desc = reader.GetString(2);
-            item.Price = reader.GetDecimal(3);
-            try
-            {
-                item.OldPrice = reader.GetDecimal(4);
-            }
-            catch
-            {
-                item.OldPrice = 0;
-            }
-            item.Rating = reader.GetDecimal(5);
-            item.Qty = reader.GetInt32(6);
-            items.Add(item);
+            item.OldPrice = reader.GetDecimal(4);
         }
-        reader.Close();
-        command = new SqlCommand($"SELECT * FROM itemImages", c);
-        reader = command.ExecuteReader();
-        while (reader.Read())
+        catch
         {
-            foreach(ShopItem item in items)
-            {
-                if(item.Id == reader.GetInt32(0))
-                {
-                    item.AddImage(reader.GetString(1));
-                }
-            }
+            item.OldPrice = 0;
         }
-        return items;
+        items.Add(item);
     }
+    reader.Close();
+    command = new SqlCommand($"SELECT * FROM itemImages", c);
+    reader = command.ExecuteReader();
+    while (reader.Read())
+    {
+        foreach (ShopItem item in items)
+        {
+            if (item.ID == reader.GetInt32(0))
+            {
+                item.AddImage(reader.GetString(1));
+            }
+        }
+    }
+    c.Close();
+    return items;
 }).WithName("Get Shop Info");
 
 app.MapGet("/getiteminfo", (int itemID) =>
 {
     StringBuilder sb = new();
-    using (SqlConnection c = new SqlConnection(ConStr))
+    using SqlConnection c = new(ConStr);
+    List<ShopItem> items = new();
+    c.Open();
+    SqlCommand command = new($"SELECT * FROM items WHERE itemID={itemID}", c);
+    SqlDataReader reader = command.ExecuteReader();
+    while (reader.Read())
     {
-        List<ShopItem> items = new List<ShopItem>();
-        c.Open();
-        SqlCommand command = new SqlCommand($"SELECT * FROM items WHERE itemID={itemID}", c);
-        SqlDataReader reader = command.ExecuteReader();
-        while (reader.Read())
+        ShopItem item = new
+     (
+         reader.GetInt32(0),
+         reader.GetString(1),
+         reader.GetString(2),
+         reader.GetDecimal(3),
+         0,
+         reader.GetDecimal(5),
+         reader.GetInt32(6)
+     );
+        try
         {
-            ShopItem item = new ShopItem();
-            item.Id = reader.GetInt32(0);
-            item.Name = reader.GetString(1);
-            item.Desc = reader.GetString(2);
-            item.Price = reader.GetDecimal(3);
-            try
-            {
-                item.OldPrice = reader.GetDecimal(4);
-            }
-            catch
-            {
-                item.OldPrice = 0;
-            }
-            item.Rating = reader.GetDecimal(5);
-            items.Add(item);
+            item.OldPrice = reader.GetDecimal(4);
         }
-        reader.Close();
-        command = new SqlCommand($"SELECT * FROM itemImages", c);
-        reader = command.ExecuteReader();
-        while (reader.Read())
+        catch
         {
-            foreach (ShopItem item in items)
-            {
-                if (item.Id == reader.GetInt32(0))
-                {
-                    item.AddImage(reader.GetString(1));
-                }
-            }
+            item.OldPrice = 0;
         }
-        return items;
+        items.Add(item);
     }
+    reader.Close();
+    command = new SqlCommand($"SELECT * FROM itemImages", c);
+    reader = command.ExecuteReader();
+    while (reader.Read())
+    {
+        foreach (ShopItem item in items)
+        {
+            if (item.ID == reader.GetInt32(0))
+            {
+                item.AddImage(reader.GetString(1));
+            }
+        }
+    }
+    c.Close();
+    return items;
 }).WithName("Get Item Info");
 
 /*********
@@ -124,94 +129,86 @@ app.MapGet("/getiteminfo", (int itemID) =>
 
 app.MapGet("/checkusername", (string username) =>
 {
-    using (SqlConnection c = new SqlConnection(ConStr))
+    using SqlConnection c = new(ConStr);
+    int salt = 0;
+    c.Open();
+    SqlCommand command = new("DECLARE @salt int " +
+                                        "EXEC checkusername @name, @salt OUTPUT " +
+                                        "SELECT @salt AS passwordSalt", c);
+    command.Parameters.AddWithValue("@name", username);
+    SqlDataReader reader = command.ExecuteReader();
+    while (reader.Read())
     {
-        int salt = 0;
-        c.Open();
-        SqlCommand command = new SqlCommand("DECLARE @salt int " +
-                                            "EXEC checkusername @name, @salt OUTPUT " +
-                                            "SELECT @salt AS passwordSalt", c);
-        command.Parameters.AddWithValue("@name", username);
-        SqlDataReader reader = command.ExecuteReader();
-        while (reader.Read())
+        try
         {
-            try
-            {
-                salt = reader.GetInt32(0);
-            }
-            catch
-            {
-                salt = 0;
-            }
+            salt = reader.GetInt32(0);
         }
-        return salt;
+        catch
+        {
+            salt = 0;
+        }
     }
+    c.Close();
+    return salt;
 }).WithName("Get Username");
 
 app.MapGet("/checklogin", (string username, string passHash) =>
 {
-    using (SqlConnection c = new SqlConnection(ConStr))
+    using SqlConnection c = new(ConStr);
+    c.Open();
+    SqlCommand command = new("DECLARE @output int " +
+                                        "EXEC @output = checklogin @username=@name, @password=@passHash " +
+                                        "SELECT @output AS output", c);
+    command.Parameters.AddWithValue("@name", username);
+    command.Parameters.AddWithValue("@passHash", passHash);
+    SqlDataReader reader = command.ExecuteReader();
+    User outputuser = new(0, "USER NOT FOUND");
+    while (reader.Read())
     {
-        c.Open();
-        SqlCommand command = new SqlCommand("DECLARE @output int " +
-                                            "EXEC @output = checklogin @username=@name, @password=@passHash " +
-                                            "SELECT @output AS output", c);
-        command.Parameters.AddWithValue("@name", username);
-        command.Parameters.AddWithValue("@passHash", passHash);
-        SqlDataReader reader = command.ExecuteReader();
-        User outputuser = new();
-        while (reader.Read())
+        try
         {
-            try
-            {
-                outputuser.Id = reader.GetInt32(0);
+            outputuser.Id = reader.GetInt32(0);
 
-                if(outputuser.Id != 0)
-                {
-                    outputuser.Name = reader.GetString(1);
-                }
-                else
-                {
-                    outputuser.Name = "USER NOT FOUND";
-                }
-
-            }
-            catch
+            if (outputuser.Id != 0)
             {
-                outputuser.Id = 0;
-                outputuser.Name = "USER NOT FOUND";
+                outputuser.Name = reader.GetString(1);
             }
         }
-        return outputuser;
+        catch
+        {
+            outputuser.Id = 0;
+            outputuser.Name = "USER NOT FOUND";
+        }
     }
+    c.Close();
+    return outputuser;
 }).WithName("Check Login");
 
-app.MapGet("/adduser", (string username, string passHash, int salt) =>
+app.MapPost("/adduser", (string username, string passHash, int salt) =>
 {
-    using (SqlConnection c = new SqlConnection(ConStr))
+    using SqlConnection c = new(ConStr);
+    int addStatus = 0;
+    c.Open();
+    SqlCommand command = new("DECLARE @output int " +
+                                        "EXEC @output = adduser @username=@name, @passwordHash=@passHash, @salt=@passSalt " +
+                                        "SELECT @output AS output", c);
+    command.Parameters.AddWithValue("@name", username);
+    command.Parameters.AddWithValue("@passHash", passHash);
+    command.Parameters.AddWithValue("@passSalt", salt);
+    SqlDataReader reader = command.ExecuteReader();
+    while (reader.Read())
     {
-        int addStatus = 0;
-        c.Open();
-        SqlCommand command = new SqlCommand("DECLARE @output int " +
-                                            "EXEC @output = adduser @username=@name, @passwordHash=@passHash, @salt=@passSalt " +
-                                            "SELECT @output AS output", c);
-        command.Parameters.AddWithValue("@name", username);
-        command.Parameters.AddWithValue("@passHash", passHash);
-        command.Parameters.AddWithValue("@passSalt", salt);
-        SqlDataReader reader = command.ExecuteReader();
-        while (reader.Read())
+        try
         {
-            try
-            {
-                addStatus = reader.GetInt32(0);
-            }
-            catch
-            {
-                addStatus = 0;
-            }
+            addStatus = reader.GetInt32(0);
         }
-        return addStatus;
+        catch
+        {
+            addStatus = 0;
+        }
     }
+    c.Close();
+    return addStatus;
 }).WithName("Add User");
 
 /*****************
@@ -220,70 +217,76 @@ app.MapGet("/adduser", (string username, string passHash, int salt) =>
 
 app.MapPost("/updatecart", (int userID, int itemID, int qty) =>
 {
-    using (SqlConnection c = new SqlConnection(ConStr))
-    {
-        c.Open();
-        SqlCommand command = new SqlCommand("EXEC updatecart @user_id=@user, @item_id=@item, @item_qty=@qty", c);
-        command.Parameters.AddWithValue("@user", userID);
-        command.Parameters.AddWithValue("@item", itemID);
-        command.Parameters.AddWithValue("@qty", qty);
-        command.ExecuteNonQuery();
-    }
+    using SqlConnection c = new(ConStr);
+    c.Open();
+
+    SqlCommand command = new("EXEC updatecart @user_id=@user, @item_id=@item, @item_qty=@qty", c);
+    command.Parameters.AddWithValue("@user", userID);
+    command.Parameters.AddWithValue("@item", itemID);
+    command.Parameters.AddWithValue("@qty", qty);
+    command.ExecuteNonQuery();
+    
+    c.Close();
+
 }).WithName("Update Cart");
 
 app.MapGet("/getcart", (int userID) =>
 {
     List<CartItem> items = new();
-    
-    using (SqlConnection c = new SqlConnection(ConStr))
+
+    using SqlConnection c = new(ConStr);
+
+    c.Open();
+    SqlCommand command = new("EXEC getcartinfo @user_id=@user", c);
+    command.Parameters.AddWithValue("@user", userID);
+    SqlDataReader reader = command.ExecuteReader();
+    while (reader.Read())
     {
 
-        c.Open();
-        SqlCommand command = new SqlCommand("EXEC getcartinfo @user_id=@user", c);
-        command.Parameters.AddWithValue("@user", userID);
-        SqlDataReader reader = command.ExecuteReader();
-        while (reader.Read())
+        try
         {
-            CartItem item = new();
-            try
-            {
-                item.Id = reader.GetInt32(0);
-                item.Name = reader.GetString(1);
-                item.Qty = reader.GetInt32(2);
-                items.Add(item);
-            }
-            catch(Exception e)
-            {
-                item.Id = 0;
-                item.Name = $"ERROR: {e.Message}";
-                item.Qty = 0;
-                items.Add(item);
-                return items;
-            }
+            CartItem item = new(
+            reader.GetInt32(0),
+            reader.GetString(1),
+            reader.GetInt32(2)
+            );
+            items.Add(item);
         }
-        reader.Close();
-        command = new SqlCommand($"SELECT * FROM itemImages", c);
-        reader = command.ExecuteReader();
-        while (reader.Read())
+        catch (Exception e)
         {
-            foreach (CartItem item in items)
-            {
-                if (item.Id == reader.GetInt32(0))
-                {
-                    item.AddImage(reader.GetString(1));
-                }
-            }
+            CartItem item = new(
+            0,
+            $"Error: {e.Message}",
+            0
+            );
+            items.Add(item);
+            c.Close();
+            return items;
         }
-        return items;
     }
+    reader.Close();
+    command = new SqlCommand($"SELECT * FROM itemImages", c);
+    reader = command.ExecuteReader();
+    while (reader.Read())
+    {
+        foreach (CartItem item in items)
+        {
+            if (item.Id == reader.GetInt32(0))
+            {
+                item.AddImage(reader.GetString(1));
+            }
+        }
+    }
+    c.Close();
+    return items;
 }).WithName("Get Cart");
 
 app.MapPost("/checkout", (int userID) =>
 {
-    using (SqlConnection c = new SqlConnection(ConStr))
+    using (SqlConnection c = new(ConStr))
     {
         c.Open();
-        SqlCommand command = new SqlCommand("EXEC checkout @user", c);
+        SqlCommand command = new("EXEC checkout @user", c);
         command.Parameters.AddWithValue("@user", userID);
         try
         {
