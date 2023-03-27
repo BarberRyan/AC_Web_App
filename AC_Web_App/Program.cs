@@ -1,4 +1,6 @@
 using AC_Web_App;
+using System.ComponentModel;
+using System.Data;
 using System.Data.SqlClient;
 using System.Data.SqlTypes;
 using System.Text;
@@ -22,6 +24,10 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 string ConStr = "Server=tcp:planetexpress.database.windows.net,1433;Initial Catalog=AmazoniaCheckout;Persist Security Info=False;User ID=AC_API;Password=PgTeam2023;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;";
+
+/*************
+ * ITEM INFO *
+ *************/
 
 app.MapGet("/getshopinfo", () =>
 {
@@ -111,6 +117,10 @@ app.MapGet("/getiteminfo", (int itemID) =>
         return items;
     }
 }).WithName("Get Item Info");
+
+/*********
+ * LOGIN *
+ *********/
 
 app.MapGet("/checkusername", (string username) =>
 {
@@ -203,5 +213,88 @@ app.MapGet("/adduser", (string username, string passHash, int salt) =>
         return addStatus;
     }
 }).WithName("Add User");
+
+/*****************
+ * SHOPPING CART *
+ *****************/
+
+app.MapPost("/updatecart", (int userID, int itemID, int qty) =>
+{
+    using (SqlConnection c = new SqlConnection(ConStr))
+    {
+        c.Open();
+        SqlCommand command = new SqlCommand("EXEC updatecart @user_id=@user, @item_id=@item, @item_qty=@qty", c);
+        command.Parameters.AddWithValue("@user", userID);
+        command.Parameters.AddWithValue("@item", itemID);
+        command.Parameters.AddWithValue("@qty", qty);
+        command.ExecuteNonQuery();
+    }
+}).WithName("Update Cart");
+
+app.MapGet("/getcart", (int userID) =>
+{
+    List<CartItem> items = new();
+    
+    using (SqlConnection c = new SqlConnection(ConStr))
+    {
+
+        c.Open();
+        SqlCommand command = new SqlCommand("EXEC getcartinfo @user_id=@user", c);
+        command.Parameters.AddWithValue("@user", userID);
+        SqlDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            CartItem item = new();
+            try
+            {
+                item.Id = reader.GetInt32(0);
+                item.Name = reader.GetString(1);
+                item.Qty = reader.GetInt32(2);
+                items.Add(item);
+            }
+            catch(Exception e)
+            {
+                item.Id = 0;
+                item.Name = $"ERROR: {e.Message}";
+                item.Qty = 0;
+                items.Add(item);
+                return items;
+            }
+        }
+        reader.Close();
+        command = new SqlCommand($"SELECT * FROM itemImages", c);
+        reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            foreach (CartItem item in items)
+            {
+                if (item.Id == reader.GetInt32(0))
+                {
+                    item.AddImage(reader.GetString(1));
+                }
+            }
+        }
+        return items;
+    }
+}).WithName("Get Cart");
+
+app.MapPost("/checkout", (int userID) =>
+{
+    using (SqlConnection c = new SqlConnection(ConStr))
+    {
+        c.Open();
+        SqlCommand command = new SqlCommand("EXEC checkout @user", c);
+        command.Parameters.AddWithValue("@user", userID);
+        try
+        {
+            command.ExecuteNonQuery();
+        }
+        catch (Exception e)
+        {
+            return e.Message;
+        }
+    }
+    return null;
+}).WithName("Checkout");
 
 app.Run();
