@@ -300,4 +300,46 @@ app.MapPost("/checkout", (int userID) =>
     return null;
 }).WithName("Checkout");
 
+app.MapPost("/addItem", (string name, string desc, decimal price, decimal oldPrice, int qty) =>
+{
+    using (SqlConnection c = new(ConStr))
+    {
+        c.Open();
+        SqlCommand command = new("EXEC addItem @name= @itemName, @desc= @itemDesc, @price= @curPrice, @oldPrice= @pastPrice, @qty= @itemQty", c);
+        command.Parameters.AddWithValue("@itemName", name);
+        command.Parameters.AddWithValue("@itemDesc", desc);
+        command.Parameters.AddWithValue("@curPrice", price);
+        command.Parameters.AddWithValue("@pastPrice", oldPrice);
+        command.Parameters.AddWithValue("@itemQty", qty);
+
+        try
+        {
+            return command.ExecuteScalar();
+        }
+        catch (Exception e)
+        {
+            return e.Message;
+        }
+    }
+}).WithName("Add Item");
+
+app.MapPost("/addImage", (int itemID, string filename) =>
+{
+    using (SqlConnection c = new(ConStr))
+    {
+        c.Open();
+        SqlCommand command = new("EXEC addImage @itemID= @ID, @imageName= @imageName", c);
+        command.Parameters.AddWithValue("@ID", itemID);
+        command.Parameters.AddWithValue("@imageName", filename);      
+        try
+        {
+            return command.ExecuteScalar();
+        }
+        catch (Exception e)
+        {
+            return e.Message;
+        }
+    }
+}).WithName("Add Image");
+
 app.Run();
