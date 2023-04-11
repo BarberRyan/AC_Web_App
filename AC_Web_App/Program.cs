@@ -162,26 +162,20 @@ app.MapGet("/checklogin", (string username, string passHash) =>
     command.Parameters.AddWithValue("@name", username);
     command.Parameters.AddWithValue("@passHash", passHash);
     SqlDataReader reader = command.ExecuteReader();
-    User outputuser = new(0, "USER NOT FOUND");
+    int userID = 0;
     while (reader.Read())
     {
         try
         {
-            outputuser.Id = reader.GetInt32(0);
-
-            if (outputuser.Id != 0)
-            {
-                outputuser.Name = reader.GetString(1);
-            }
+            userID = reader.GetInt32(0);
         }
         catch
         {
-            outputuser.Id = 0;
-            outputuser.Name = "USER NOT FOUND";
+            userID = 0;
         }
     }
     c.Close();
-    return outputuser;
+    return userID;
 }).WithName("Check Login");
 
 app.MapPost("/adduser", (string username, string passHash, int salt) =>
