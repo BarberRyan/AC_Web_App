@@ -218,9 +218,10 @@ app.MapPost("/updatecart", (int userID, int itemID, int qty) =>
     command.Parameters.AddWithValue("@user", userID);
     command.Parameters.AddWithValue("@item", itemID);
     command.Parameters.AddWithValue("@qty", qty);
-    command.ExecuteNonQuery();
-    
+    int result = command.ExecuteNonQuery();
     c.Close();
+
+    return result;
 
 }).WithName("Update Cart");
 
