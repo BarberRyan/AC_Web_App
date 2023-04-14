@@ -178,7 +178,7 @@ app.MapGet("/checklogin", (string username, string passHash) =>
     return userID;
 }).WithName("Check Login");
 
-app.MapPost("/adduser", (string username, string passHash, int salt) =>
+app.MapGet("/adduser", (string username, string passHash, int salt) =>
 {
     using SqlConnection c = new(ConStr);
     int addStatus = 0;
@@ -209,7 +209,7 @@ app.MapPost("/adduser", (string username, string passHash, int salt) =>
  * SHOPPING CART *
  *****************/
 
-app.MapPost("/updatecart", (int userID, int itemID, int qty) =>
+app.MapGet("/updatecart", (int userID, int itemID, int qty) =>
 {
     using SqlConnection c = new(ConStr);
     c.Open();
@@ -276,7 +276,7 @@ app.MapGet("/getcart", (int userID) =>
     return items;
 }).WithName("Get Cart");
 
-app.MapPost("/checkout", (int userID) =>
+app.MapGet("/checkout", (int userID) =>
 {
     using (SqlConnection c = new(ConStr))
     {
@@ -295,7 +295,7 @@ app.MapPost("/checkout", (int userID) =>
     return null;
 }).WithName("Checkout");
 
-app.MapPost("/addItem", (string name, string desc, decimal price, decimal oldPrice, int qty) =>
+app.MapGet("/addItem", (string name, string desc, decimal price, decimal oldPrice, int qty) =>
 {
     using (SqlConnection c = new(ConStr))
     {
@@ -318,7 +318,7 @@ app.MapPost("/addItem", (string name, string desc, decimal price, decimal oldPri
     }
 }).WithName("Add Item");
 
-app.MapPost("/addImage", (int itemID, string filename) =>
+app.MapGet("/addImage", (int itemID, string filename) =>
 {
     using (SqlConnection c = new(ConStr))
     {
